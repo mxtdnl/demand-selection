@@ -56,11 +56,27 @@ Top-right toggle, persisted in `localStorage`:
   A **"Show illustrative demo class" checkbox** clears the seeded data from the
   histogram in one click (leaving only real results), and "Clear added results"
   removes the tally you've built up.
-- **Path A (optional Firebase live mode):** paste a Firebase web config into the
-  `FIREBASE_CONFIG` constant near the bottom of `index.html`. When present, the
-  tool creates a session with a short **join code** + shareable URL, and student
-  results stream into a live histogram. When absent — or if Firebase fails to load —
-  it degrades gracefully to Path B. No external JS loads unless a config is set.
+- **Path A (Firebase live mode):** the `firebaseConfig` at the top of the
+  `<script>` in `index.html` is set to the project's real config, so the tool runs
+  **LIVE** out of the box. Detection is automatic from `firebaseConfig.apiKey`:
+  a real key → **LIVE**; a placeholder (contains `…`) or empty → **OFFLINE**
+  (seeded demo). To force offline, set `apiKey` to `"…"`. The aggregate screen
+  shows a small badge — `● live session` vs `○ demo data`.
+  - **Students** get a 4-character **session code** field on the intro screen
+    (prefilled from a `?code=CODE` URL). On finishing, their run is submitted once
+    via `submitResult(code, avoidance, rtDelta, errDelta)` — `avoidance` is a
+    `0..1` fraction, written to `sessions/<CODE>/results`.
+  - **Instructors** open **"Instructor / show session"**, generate or type a code,
+    and project it large with the shareable `?code=` link; the console calls
+    `listenToSession(code, …)` and the histogram grows as students finish.
+  - Init is lazy + dynamic-imported and every Firebase call is `try/catch`-wrapped;
+    any error falls back to OFFLINE and `console.warn`s rather than blocking the UI.
+    Nothing loads while OFFLINE, so a placeholder config runs fully on seeded data
+    with no console errors.
+
+  **To test live:** open the tool in two tabs. In tab 1, enter code `TEST` on the
+  intro and complete a run. In tab 2, click **Instructor / show session**, type
+  `TEST`, and a bar appears within ~1s; further runs add/grow bars live.
 
 ## Accessibility
 

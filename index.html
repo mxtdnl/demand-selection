@@ -37,47 +37,6 @@
   font-size:17px;
 }
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
-
-// 1) Paste your config here. ENSURE databaseURL is present.
-const firebaseConfig = {
-  apiKey: "AIzaSyAVPl_OF1Ouv9ojygp5mb3xrKGEz10URvQ",
-  authDomain: "demand-task.firebaseapp.com",
-  databaseURL: "https://demand-task-default-rtdb.europe-west1.firebasedatabase.app/", // ← must be here
-  projectId: "demand-task",
-  storageBucket: "demand-task.firebasestorage.app",
-  messagingSenderId: "54797751854",
-  appId: "1:54797751854:web:85f12238d2a3aef8cd71bf"
-};
-
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
-
-// 2) STUDENT: call this once, at the personal-reveal step, with the session code + their result.
-window.submitResult = function (code, avoidance, rtDelta, errDelta) {
-  return push(ref(db, `sessions/${code}/results`), {
-    avoidance: avoidance,       // 0..1
-    rtDelta:   rtDelta || 0,
-    errDelta:  errDelta || 0,
-    ts:        Date.now()
-  });
-};
-
-// 3) INSTRUCTOR CONSOLE: call this once when the aggregate view opens.
-//    It fires immediately AND every time a new result arrives — live histogram.
-window.listenToSession = function (code, onData) {
-  const resultsRef = ref(db, `sessions/${code}/results`);
-  onValue(resultsRef, (snap) => {
-    const obj  = snap.val() || {};
-    const rows = Object.values(obj);               // [{avoidance, rtDelta, ...}, …]
-    const avoidances = rows.map(r => r.avoidance); // feed this to the histogram
-    onData(avoidances, rows);
-  });
-};
-</script>
-
 /* Dark projection variant */
 body.project{
   --paper:#16130F; --surface:#1E1A15; --ink:#F5F1E8; --ink-muted:#B8AF9E;
@@ -296,6 +255,18 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
       </div>
       <p class="caption">The colour of the digit tells you which judgment to make. Use the keyboard (<b class="mono">F</b> / <b class="mono">J</b>) or the on-screen buttons. (The number 5 never appears.)</p>
 
+      <!-- Student session code (LIVE mode only) -->
+      <div id="session-join" style="display:none;">
+        <hr class="hairline">
+        <div class="field" style="max-width:280px;">
+          <label for="code-input">Class session code</label>
+          <input type="text" id="code-input" maxlength="4" placeholder="ABCD"
+                 autocapitalize="characters" spellcheck="false"
+                 style="text-transform:uppercase; letter-spacing:0.22em; font-size:var(--fs-lead);">
+        </div>
+        <p class="caption" style="margin:0">Enter the 4-character code from your instructor. Leave blank to just play on your own.</p>
+      </div>
+
       <hr class="hairline">
       <div class="row" style="justify-content:space-between;">
         <div>
@@ -303,6 +274,12 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
           <p class="caption" style="margin:0">Rules stay on screen. You'll get feedback here only.</p>
         </div>
         <button class="btn" id="btn-start-practice">Start practice</button>
+      </div>
+
+      <hr class="hairline">
+      <div class="row" style="justify-content:space-between; align-items:center;">
+        <p class="caption" style="margin:0">Running this for a class?</p>
+        <button class="btn btn--ghost" id="btn-instructor">Instructor / show session ▸</button>
       </div>
     </div>
   </section>
@@ -435,35 +412,53 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
   <section id="screen-aggregate" class="screen">
     <div class="row" style="justify-content:space-between; margin-bottom:var(--s3);">
       <h2>The class</h2>
-      <span class="status-pill demo" id="agg-status"><span class="dot"></span><span id="agg-status-txt">Demo data</span></span>
+      <span class="status-pill demo" id="agg-status"><span class="dot"></span><span id="agg-status-txt">demo data</span></span>
     </div>
 
     <div class="agg-grid">
       <!-- Instructor console / controls -->
       <div class="panel">
-        <h3>Add to the tally</h3>
-        <p class="caption">Every result makes the pattern harder to dismiss as one person's quirk.</p>
-        <button class="btn btn--signal" id="btn-addme" style="width:100%; margin-bottom:var(--s3)">Add my result (<span id="myidx">0</span>%)</button>
-
-        <div class="field">
-          <label for="manual-idx">Instructor: type a called-out %</label>
-          <div class="row" style="flex-wrap:nowrap;">
-            <input type="number" id="manual-idx" min="0" max="100" step="1" placeholder="0–100" style="flex:1; min-width:0;">
-            <button class="btn btn--ghost" id="btn-manual">Add</button>
+        <!-- Live class session console (LIVE mode) -->
+        <div id="session-console" style="display:none;">
+          <h3>Class session</h3>
+          <p class="caption">Share the code or link; bars appear as students finish.</p>
+          <div class="field">
+            <label for="code-instructor">Session code</label>
+            <div class="row" style="flex-wrap:nowrap;">
+              <input type="text" id="code-instructor" maxlength="4" placeholder="ABCD"
+                     autocapitalize="characters" spellcheck="false"
+                     style="flex:1; min-width:0; text-transform:uppercase; letter-spacing:0.22em;">
+              <button class="btn btn--ghost" id="btn-gencode">Generate</button>
+            </div>
+          </div>
+          <div class="joinbox" id="joinbox" style="display:none;">
+            <div class="caption" style="margin-bottom:var(--s1)">Students join at:</div>
+            <div class="joincode" id="join-code">————</div>
+            <div class="joinurl" id="join-url"></div>
           </div>
         </div>
 
-        <label class="chk-row" for="chk-demo">
-          <input type="checkbox" id="chk-demo" checked>
-          Show illustrative demo class (n≈40)
-        </label>
-        <button class="btn btn--ghost" id="btn-clear" style="width:100%">Clear added results</button>
+        <!-- No-backend tally (OFFLINE / demo) -->
+        <div id="manual-console">
+          <h3>Add to the tally</h3>
+          <p class="caption">Every result makes the pattern harder to dismiss as one person's quirk.</p>
+          <button class="btn btn--signal" id="btn-addme" style="width:100%; margin-bottom:var(--s3)">Add my result (<span id="myidx">0</span>%)</button>
 
-        <div class="joinbox" id="joinbox" style="display:none;">
-          <div class="caption" style="margin-bottom:var(--s1)">Live class session — students join with:</div>
-          <div class="joincode" id="join-code">————</div>
-          <div class="joinurl" id="join-url"></div>
+          <div class="field">
+            <label for="manual-idx">Instructor: type a called-out %</label>
+            <div class="row" style="flex-wrap:nowrap;">
+              <input type="number" id="manual-idx" min="0" max="100" step="1" placeholder="0–100" style="flex:1; min-width:0;">
+              <button class="btn btn--ghost" id="btn-manual">Add</button>
+            </div>
+          </div>
+
+          <label class="chk-row" for="chk-demo">
+            <input type="checkbox" id="chk-demo" checked>
+            Show illustrative demo class (n≈40)
+          </label>
+          <button class="btn btn--ghost" id="btn-clear" style="width:100%">Clear added results</button>
         </div>
+
         <p class="caption" id="firebase-note" style="margin-top:var(--s3)"></p>
       </div>
 
@@ -488,13 +483,75 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
 
 <script>
 /* ============================================================
-   OPTIONAL FIREBASE CLASS MODE (Path A)
-   Leave FIREBASE_CONFIG null to run fully offline (Path B):
-   no external JS loads, seeded demo + manual tally are used.
-   To enable live class mode, paste your Firebase web config here.
-   Graceful degradation: any failure falls back to Path B.
+   PART C — Firebase class mode (public API the UI wires into)
+   Uses the project's real firebaseConfig and the same session
+   schema as the original Part C: results are pushed to
+   sessions/<CODE>/results as { avoidance (0..1), rtDelta, errDelta, ts },
+   and window.submitResult / window.listenToSession keep those exact
+   signatures. Init is lazy + dynamic-imported and everything is
+   try/catch-wrapped, so:
+     • placeholder apiKey (contains "…") or empty  → OFFLINE, no Firebase
+       code is loaded or called, seeded demo is used, no console errors;
+     • real apiKey                                 → LIVE class session.
+   Replace the "…" placeholders below with a placeholder to force OFFLINE.
    ============================================================ */
-const FIREBASE_CONFIG = null; // e.g. { apiKey:"…", databaseURL:"…", projectId:"…" }
+const firebaseConfig = {
+  apiKey:            "AIzaSyAVPl_OF1Ouv9ojygp5mb3xrKGEz10URvQ",
+  authDomain:        "demand-task.firebaseapp.com",
+  databaseURL:       "https://demand-task-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId:         "demand-task",
+  storageBucket:     "demand-task.firebasestorage.app",
+  messagingSenderId: "54797751854",
+  appId:             "1:54797751854:web:85f12238d2a3aef8cd71bf"
+};
+
+// LIVE when apiKey is a real (non-placeholder, non-empty) value.
+const LIVE = (function(){
+  const k = firebaseConfig && firebaseConfig.apiKey;
+  return typeof k === 'string' && k.length > 0 && !k.includes('…');
+})();
+
+// Lazy, one-time Firebase init (dynamic import → nothing loads while OFFLINE).
+let _fbDb=null, _fbRef=null, _fbPush=null, _fbOnValue=null, _fbReady=null;
+function _initFirebase(){
+  if(_fbReady) return _fbReady;
+  _fbReady = (async ()=>{
+    const appMod = await import('https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js');
+    const dbMod  = await import('https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js');
+    const app = appMod.initializeApp(firebaseConfig);
+    _fbDb = dbMod.getDatabase(app);
+    _fbRef = dbMod.ref; _fbPush = dbMod.push; _fbOnValue = dbMod.onValue;
+    return _fbDb;
+  })();
+  return _fbReady;
+}
+
+// STUDENT: call once at the personal-reveal step. avoidance is 0..1.
+window.submitResult = async function(code, avoidance, rtDelta, errDelta){
+  if(!LIVE || !code) return;
+  try{
+    await _initFirebase();
+    await _fbPush(_fbRef(_fbDb, `sessions/${code}/results`), {
+      avoidance: +avoidance,               // 0..1
+      rtDelta:  Number.isFinite(+rtDelta)  ? +rtDelta  : 0,
+      errDelta: Number.isFinite(+errDelta) ? +errDelta : 0,
+      ts: Date.now()
+    });
+  }catch(err){ console.warn('submitResult failed (staying offline):', err); }
+};
+
+// INSTRUCTOR: call once when the aggregate opens. onData(avoidances, rows)
+// fires immediately and on every new result, for a live histogram.
+window.listenToSession = function(code, onData){
+  if(!LIVE || !code) return;
+  _initFirebase().then(()=>{
+    _fbOnValue(_fbRef(_fbDb, `sessions/${code}/results`), snap=>{
+      const rows = Object.values(snap.val() || {});
+      const avoidances = rows.map(r=> r && r.avoidance).filter(n=> typeof n==='number');
+      try{ onData(avoidances, rows); }catch(e){ console.warn(e); }
+    });
+  }).catch(err=> console.warn('listenToSession failed (staying offline):', err));
+};
 
 /* ---------------- Task constants ---------------- */
 const N_TRIALS = 80;            // within the 60–100 spec range
@@ -607,7 +664,13 @@ function answerPractice(resp){
 $('#p-btnF').addEventListener('click', ()=>answerPractice('F'));
 $('#p-btnJ').addEventListener('click', ()=>answerPractice('J'));
 
-$('#btn-begin').addEventListener('click', ()=>{ startTask(); });
+$('#btn-begin').addEventListener('click', ()=>{
+  if(LIVE){
+    const c = ($('#code-input').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+    if(c) sessionCode = c;
+  }
+  startTask();
+});
 
 /* ============================================================
    TASK BLOCK — free-choice loop + switch-probability engine
@@ -776,6 +839,16 @@ function buildReveal(){
   const s = summarise();
   myIndex = s.idx;
   $('#myidx').textContent = myIndex;
+  hasPlayed = true;
+
+  // LIVE: submit this completed run's result exactly once
+  if(LIVE && sessionCode && !resultSubmitted){
+    resultSubmitted = true;
+    const rtDelta  = (isNaN(s.rtHi)||isNaN(s.rtLo)) ? 0 : Math.round(s.rtHi - s.rtLo);
+    const errDelta = (isNaN(s.erHi)||isNaN(s.erLo)) ? 0 : +(s.erHi - s.erLo).toFixed(1);
+    // schema stores avoidance as a 0..1 fraction (index is a 0..100 %)
+    try{ window.submitResult(sessionCode, s.idx/100, rtDelta, errDelta); }catch(e){ console.warn(e); }
+  }
 
   // hero count-up
   const target = s.idx;
@@ -830,11 +903,8 @@ function buildReveal(){
 }
 function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-$('#btn-aggregate').addEventListener('click', ()=>{
-  show('#screen-aggregate');
-  refreshAggregate();
-  requestAnimationFrame(()=>requestAnimationFrame(drawHistogram));
-});
+$('#btn-aggregate').addEventListener('click', ()=> openAggregate({instructor:false}));
+$('#btn-instructor').addEventListener('click', ()=> openAggregate({instructor:true}));
 
 /* ============================================================
    CLASS AGGREGATE (Path B default; Path A via Firebase)
@@ -843,10 +913,22 @@ $('#btn-aggregate').addEventListener('click', ()=>{
 const DEMO_CLASS = [78,65,72,84,59,91,68,73,55,80,62,88,70,76,66,52,83,71,60,74,
                     69,86,58,77,64,81,49,72,67,90,54,79,63,85,70,75,61,82,57,73];
 let showDemo = true;
-let classData = [];          // live/manual additions
-let firebaseLive = false;
+let classData = [];          // live (Firebase) or manual additions
+let aggMode = 'demo';        // 'live' | 'demo' — drives the badge
+let viewAsInstructor = false;
+let hasPlayed = false;       // true once a run reaches the reveal
+let sessionCode = '';        // 4-char class code for this run/session
+let resultSubmitted = false; // guard: submit each finished run only once
+const _listening = new Set();
+function genCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
 
 function currentClass(){ return (showDemo ? DEMO_CLASS.slice() : []).concat(classData); }
+
+function setBadge(live){
+  const pill=$('#agg-status'), txt=$('#agg-status-txt');
+  pill.className = live ? 'status-pill live' : 'status-pill demo';
+  txt.textContent = live ? 'live session' : 'demo data';
+}
 
 function refreshAggregate(){
   const data = currentClass();
@@ -857,19 +939,67 @@ function refreshAggregate(){
   $('#stat-share').textContent = isNaN(share) ? '—' : Math.round(share)+'%';
   $('#stat-n').textContent = n;
   $('#myidx').textContent = myIndex;
-  // status pill
-  const pill = $('#agg-status'), txt = $('#agg-status-txt');
-  if(firebaseLive){ pill.className='status-pill live'; txt.textContent='Live class'; }
-  else if(showDemo){ pill.className='status-pill demo'; txt.textContent='Demo data (illustrative)'; }
-  else { pill.className='status-pill'; txt.textContent='Local tally'; }
+  setBadge(aggMode==='live');
   drawHistogram();
+}
+
+/* Open the aggregate. instructor:true → dark projection console, no personal
+   marker; LIVE listens to the session, OFFLINE renders the seeded demo. */
+function openAggregate(opts){
+  opts = opts || {};
+  viewAsInstructor = !!opts.instructor;
+  if(viewAsInstructor) setMode('project');
+  show('#screen-aggregate');
+  if(LIVE){
+    aggMode = 'live';
+    $('#session-console').style.display = 'block';
+    $('#manual-console').style.display = 'none';
+    $('#firebase-note').innerHTML = 'Class mode: <b>live</b> — results stream into this session.';
+    showDemo = false; classData = [];
+    let code = (opts.code||'').toUpperCase() || sessionCode || (viewAsInstructor ? genCode() : '');
+    if(code) applySessionCode(code); else refreshAggregate();
+  } else {
+    aggMode = 'demo';
+    $('#session-console').style.display = 'none';
+    $('#manual-console').style.display = 'block';
+    $('#firebase-note').innerHTML = 'Class mode: <b>offline</b> — showing illustrative demo data. '
+      + 'Replace <code>firebaseConfig.apiKey</code> in the source to run a live class.';
+    showDemo = $('#chk-demo').checked;
+    refreshAggregate();
+  }
+  drawHistogram._t = 0;
+  requestAnimationFrame(()=>requestAnimationFrame(animateHistogram));
+}
+
+/* Set the active session code: update the console UI, the join link, and
+   (LIVE) attach a listener that feeds avoidance indices into the histogram. */
+function applySessionCode(code){
+  code = (code||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+  if(code.length < 1) return;
+  sessionCode = code;
+  const ci = $('#code-instructor'); if(ci) ci.value = code;
+  $('#join-code').textContent = code;
+  $('#join-url').textContent = location.origin + location.pathname + '?code=' + code;
+  $('#joinbox').style.display = 'block';
+  showDemo = false;
+  if(LIVE && !_listening.has(code)){
+    _listening.add(code);
+    // avoidances arrive as 0..1 fractions → scale to the 0..100 the histogram uses
+    listenToSession(code, avoidances=>{
+      if(code!==sessionCode) return;
+      classData = avoidances.map(a=> a<=1 ? Math.round(a*100) : Math.round(a));
+      refreshAggregate();
+    });
+  }
+  refreshAggregate();
 }
 
 $('#btn-addme').addEventListener('click', ()=>{
   classData.push(myIndex);
-  if(firebaseLive) pushToFirebase(myIndex);
   refreshAggregate();
 });
+$('#btn-gencode').addEventListener('click', ()=> applySessionCode(genCode()));
+$('#code-instructor').addEventListener('change', e=> applySessionCode(e.target.value));
 $('#btn-manual').addEventListener('click', ()=>{
   const v = parseInt($('#manual-idx').value,10);
   if(!isNaN(v) && v>=0 && v<=100){ classData.push(v); $('#manual-idx').value=''; refreshAggregate(); }
@@ -884,6 +1014,7 @@ $('#btn-restart').addEventListener('click', ()=>{
   $('#begin-hint').textContent='Finish practice to begin.';
   document.querySelectorAll('input[name="aw"]').forEach(r=>r.checked=false);
   $('#aw-text').value=''; $('#btn-reveal').disabled=true;
+  hasPlayed=false; resultSubmitted=false; viewAsInstructor=false;
   show('#screen-intro');
 });
 
@@ -975,8 +1106,8 @@ function drawHistogram(){
     ctx.fillText('mean '+Math.round(mean)+'%', mean>85?xm-4:xm+4, padT);
   }
 
-  // your marker (--cue caret) on top of your bin
-  if(typeof myIndex==='number'){
+  // your marker (--cue caret) — only for a student who has played, not instructor
+  if(!viewAsInstructor && hasPlayed && typeof myIndex==='number'){
     const xy = x0 + plotW*(Math.min(100,myIndex)/100);
     ctx.fillStyle=cCue; ctx.strokeStyle=cCue;
     ctx.beginPath(); ctx.moveTo(xy, padT+6); ctx.lineTo(xy-6, padT-4); ctx.lineTo(xy+6, padT-4); ctx.closePath(); ctx.fill();
@@ -996,60 +1127,18 @@ function animateHistogram(){
     if(p<1) histAnim=requestAnimationFrame(step);
   })(t0);
 }
-// trigger grow-in when aggregate first shown
-$('#btn-aggregate').addEventListener('click', ()=>{
-  drawHistogram._t = 0;
-  requestAnimationFrame(()=>requestAnimationFrame(animateHistogram));
-});
-
 /* ============================================================
-   FIREBASE (Path A) — loads only if configured; else Path B
+   SESSION-CODE UI INIT — decide OFFLINE/LIVE affordances on load
    ============================================================ */
-let fbApp=null, fbDb=null, fbSessionRef=null, joinCode=null;
-function genCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<4;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
-
-async function initFirebase(){
-  const note = $('#firebase-note');
-  if(!FIREBASE_CONFIG){
-    note.innerHTML = 'Class mode: <b>offline</b>. Seeded demo + manual tally in use. '
-      + 'Add a Firebase config in the source to enable a live, projectable class histogram.';
-    return;
+(function initSessionUI(){
+  const urlCode = (new URLSearchParams(location.search).get('code')||'')
+                    .toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+  if(LIVE){
+    // Student: show the code-entry field on the intro, prefilled from ?code=.
+    $('#session-join').style.display = 'block';
+    if(urlCode){ $('#code-input').value = urlCode; sessionCode = urlCode; }
   }
-  try{
-    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-    const dbMod  = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-    fbApp = appMod.initializeApp(FIREBASE_CONFIG);
-    fbDb  = dbMod.getDatabase(fbApp);
-    joinCode = genCode();
-    fbSessionRef = dbMod.ref(fbDb, 'demand-sessions/'+joinCode);
-    firebaseLive = true; showDemo = false; $('#chk-demo').checked = false;
-    // live subscription → histogram
-    dbMod.onValue(fbSessionRef, snap=>{
-      const val = snap.val() || {};
-      classData = Object.values(val).map(v=>v.index).filter(x=>typeof x==='number');
-      refreshAggregate();
-    });
-    // show join box
-    const url = location.origin + location.pathname + '?join=' + joinCode;
-    $('#joinbox').style.display='block';
-    $('#join-code').textContent = joinCode;
-    $('#join-url').textContent = url;
-    note.innerHTML = 'Class mode: <b>live</b>. Results write anonymously to this session.';
-    // stash pusher
-    pushToFirebase = (idx)=>{ dbMod.push(fbSessionRef, { index: idx, ts: Date.now() }); };
-  }catch(err){
-    console.warn('Firebase unavailable, using Path B:', err);
-    firebaseLive=false;
-    note.innerHTML = 'Class mode: <b>offline</b> (Firebase failed to load). Seeded demo + manual tally in use.';
-  }
-}
-let pushToFirebase = ()=>{}; // no-op until Firebase configured
-initFirebase();
-
-/* If arriving via a ?join= link, note it (students would join that session). */
-(function checkJoin(){
-  const code = new URLSearchParams(location.search).get('join');
-  if(code) console.info('Join code present:', code, '(students play, then their index writes to this session).');
+  setBadge(false); // aggregate opens with a mode-correct badge; safe default
 })();
 </script>
 </body>
