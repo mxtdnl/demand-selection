@@ -114,6 +114,9 @@ body.project .btn{min-height:48px;}
 
 /* ---------- Choice screen ---------- */
 .choice-stage{text-align:center; padding:var(--s4) 0;}
+#choice-gate{display:flex; flex-direction:column; align-items:center; gap:var(--s3); min-height:300px; justify-content:center;}
+.gate-btn{font-size:var(--fs-lead); padding:16px 30px;}
+#choice-decks{min-height:300px; display:flex; flex-direction:column; justify-content:center;}
 .decks{display:flex; gap:var(--s5); justify-content:center; margin:var(--s4) 0;}
 .deck{
   width:220px; height:260px; border-radius:8px; border:2px solid var(--rule);
@@ -195,6 +198,8 @@ body.project .canvas-wrap{height:460px;}
 .field label{font-size:var(--fs-caption); color:var(--ink-muted); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em;}
 input[type=text],input[type=number]{font:400 var(--fs-body)/1 var(--font-mono); padding:10px 12px; border:1px solid var(--rule); border-radius:6px; background:var(--paper); color:var(--ink);}
 input:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+.chk-row{display:flex; align-items:center; gap:var(--s2); font-size:var(--fs-caption); color:var(--ink-muted); font-family:var(--font-mono); margin-bottom:var(--s3); cursor:pointer;}
+.chk-row input{accent-color:var(--cue); width:16px; height:16px; cursor:pointer;}
 .status-pill{display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--ink-muted); border:1px solid var(--rule); border-radius:20px; padding:6px 12px;}
 .status-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--ink-muted);}
 .status-pill.live .dot{background:var(--gain);}
@@ -293,12 +298,22 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
     <!-- Choice sub-panel -->
     <div class="panel" id="choice-panel">
       <div class="choice-stage">
-        <h3 class="muted">Choose a deck</h3>
-        <div class="decks">
-          <button class="deck" data-id="A" aria-label="Deck one">◆</button>
-          <button class="deck" data-id="B" aria-label="Deck two">●</button>
+        <!-- Centred gate: forces a fresh, deliberate action each trial so a
+             choice can't be made by parking the cursor and auto-firing clicks. -->
+        <div id="choice-gate">
+          <h3 class="muted">Your choice</h3>
+          <button class="btn gate-btn" id="gate-btn" aria-label="Reveal the two decks">▶ Show the decks</button>
+          <p class="caption">A fresh pick each round — click here (or press <b class="mono">Space</b>), then choose.</p>
         </div>
-        <p class="caption">Pick whichever you like — click, tap, or press <b class="mono">←</b> / <b class="mono">→</b>.</p>
+        <!-- Decks: hidden until the gate is triggered; positions shuffle each trial. -->
+        <div id="choice-decks" style="display:none;">
+          <h3 class="muted">Choose a deck</h3>
+          <div class="decks">
+            <button class="deck" data-id="A" aria-label="Deck one">◆</button>
+            <button class="deck" data-id="B" aria-label="Deck two">●</button>
+          </div>
+          <p class="caption">Pick whichever you like — click, tap, or press <b class="mono">←</b> / <b class="mono">→</b>.</p>
+        </div>
         <div class="progress-wrap">
           <div class="progress-track"><div class="progress-fill" id="t-progress"></div></div>
           <div class="progress-label" id="t-proglabel">Trial 0</div>
@@ -397,10 +412,11 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
           </div>
         </div>
 
-        <div class="row" style="gap:var(--s2)">
-          <button class="btn btn--ghost" id="btn-demo">Toggle demo class</button>
-          <button class="btn btn--ghost" id="btn-clear">Clear tally</button>
-        </div>
+        <label class="chk-row" for="chk-demo">
+          <input type="checkbox" id="chk-demo" checked>
+          Show illustrative demo class (n≈40)
+        </label>
+        <button class="btn btn--ghost" id="btn-clear" style="width:100%">Clear added results</button>
 
         <div class="joinbox" id="joinbox" style="display:none;">
           <div class="caption" style="margin-bottom:var(--s1)">Live class session — students join with:</div>
@@ -561,22 +577,37 @@ function startTask(){
   showChoice();
 }
 
+let decksRevealed = false;
 function showChoice(){
   $('#micro-panel').style.display = 'none';
   $('#choice-panel').style.display = 'block';
   document.querySelectorAll('.deck').forEach(d=>d.classList.remove('picked'));
   $('#t-progress').style.width = (trialIndex/N_TRIALS*100)+'%';
   $('#t-proglabel').textContent = 'Trial '+trialIndex+' / '+N_TRIALS;
-  // Randomise left/right position each trial so a choice can't be made by
-  // repeating the same motor action (location perseveration). The deck is
-  // identified by its glyph/colour, not where it sits — logging stays by data-id.
-  shuffleDecks();
-  const first = document.querySelector('#choice-panel .decks .deck');
-  if(first) first.focus({preventScroll:true});
+  // Start each trial at the centred gate. The interactive target therefore
+  // alternates centre (gate) → left/right (deck), so no single fixed cursor
+  // position can advance two trials in a row: a deliberate move is required.
+  decksRevealed = false;
+  $('#choice-gate').style.display = 'flex';
+  $('#choice-decks').style.display = 'none';
+  $('#gate-btn').focus({preventScroll:true});
 }
 
+function revealDecks(){
+  if(decksRevealed) return;
+  decksRevealed = true;
+  $('#choice-gate').style.display = 'none';
+  $('#choice-decks').style.display = 'flex';
+  // Randomise left/right position so location isn't a stable proxy for identity;
+  // a deck is identified by its glyph/colour. Logging stays by data-id.
+  shuffleDecks();
+  const first = document.querySelector('#choice-decks .decks .deck');
+  if(first) first.focus({preventScroll:true});
+}
+$('#gate-btn').addEventListener('click', revealDecks);
+
 function shuffleDecks(){
-  const row = document.querySelector('#choice-panel .decks');
+  const row = document.querySelector('#choice-decks .decks');
   const a = row.querySelector('.deck[data-id="A"]');
   const b = row.querySelector('.deck[data-id="B"]');
   if(Math.random() < 0.5){ row.appendChild(a); row.appendChild(b); }
@@ -636,9 +667,9 @@ function answerTask(resp){
 $('#t-btnF').addEventListener('click', ()=>answerTask('F'));
 $('#t-btnJ').addEventListener('click', ()=>answerTask('J'));
 
-// Deck selection via click + keyboard
+// Deck selection via click + keyboard (only once the gate has been passed)
 document.querySelectorAll('.deck').forEach(d=>{
-  d.addEventListener('click', ()=>{ if($('#choice-panel').style.display!=='none') pickDeck(d.dataset.id); });
+  d.addEventListener('click', ()=>{ if(decksRevealed && $('#choice-panel').style.display!=='none') pickDeck(d.dataset.id); });
 });
 
 // Global keyboard: arrows for decks, F/J for responses
@@ -653,8 +684,11 @@ document.addEventListener('keydown', (e)=>{
   }
   if(!taskActive) return;
   const choosing = $('#choice-panel').style.display !== 'none';
-  if(choosing){
-    const decks = document.querySelectorAll('#choice-panel .decks .deck');
+  if(choosing && !decksRevealed){
+    // at the gate: Space / Enter reveals the decks (a deliberate act each trial)
+    if(e.key===' ' || e.key==='Enter'){ e.preventDefault(); revealDecks(); }
+  } else if(choosing && decksRevealed){
+    const decks = document.querySelectorAll('#choice-decks .decks .deck');
     if(e.key==='ArrowLeft'){ e.preventDefault(); pickDeck(decks[0].dataset.id); }
     else if(e.key==='ArrowRight'){ e.preventDefault(); pickDeck(decks[1].dataset.id); }
   } else if(awaiting){
@@ -800,7 +834,7 @@ $('#btn-manual').addEventListener('click', ()=>{
   if(!isNaN(v) && v>=0 && v<=100){ classData.push(v); $('#manual-idx').value=''; refreshAggregate(); }
 });
 $('#manual-idx').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#btn-manual').click(); });
-$('#btn-demo').addEventListener('click', ()=>{ showDemo=!showDemo; refreshAggregate(); });
+$('#chk-demo').addEventListener('change', e=>{ showDemo = e.target.checked; refreshAggregate(); });
 $('#btn-clear').addEventListener('click', ()=>{ classData=[]; refreshAggregate(); });
 $('#btn-restart').addEventListener('click', ()=>{
   // fresh participant: re-randomise hidden mapping (counterbalancing across plays)
@@ -947,7 +981,7 @@ async function initFirebase(){
     fbDb  = dbMod.getDatabase(fbApp);
     joinCode = genCode();
     fbSessionRef = dbMod.ref(fbDb, 'demand-sessions/'+joinCode);
-    firebaseLive = true; showDemo = false;
+    firebaseLive = true; showDemo = false; $('#chk-demo').checked = false;
     // live subscription → histogram
     dbMod.onValue(fbSessionRef, snap=>{
       const val = snap.val() || {};
