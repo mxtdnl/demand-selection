@@ -37,6 +37,47 @@
   font-size:17px;
 }
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+// 1) Paste your config here. ENSURE databaseURL is present.
+const firebaseConfig = {
+  apiKey: "AIzaSyAVPl_OF1Ouv9ojygp5mb3xrKGEz10URvQ",
+  authDomain: "demand-task.firebaseapp.com",
+  databaseURL: "https://demand-task-default-rtdb.europe-west1.firebasedatabase.app/", // ← must be here
+  projectId: "demand-task",
+  storageBucket: "demand-task.firebasestorage.app",
+  messagingSenderId: "54797751854",
+  appId: "1:54797751854:web:85f12238d2a3aef8cd71bf"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// 2) STUDENT: call this once, at the personal-reveal step, with the session code + their result.
+window.submitResult = function (code, avoidance, rtDelta, errDelta) {
+  return push(ref(db, `sessions/${code}/results`), {
+    avoidance: avoidance,       // 0..1
+    rtDelta:   rtDelta || 0,
+    errDelta:  errDelta || 0,
+    ts:        Date.now()
+  });
+};
+
+// 3) INSTRUCTOR CONSOLE: call this once when the aggregate view opens.
+//    It fires immediately AND every time a new result arrives — live histogram.
+window.listenToSession = function (code, onData) {
+  const resultsRef = ref(db, `sessions/${code}/results`);
+  onValue(resultsRef, (snap) => {
+    const obj  = snap.val() || {};
+    const rows = Object.values(obj);               // [{avoidance, rtDelta, ...}, …]
+    const avoidances = rows.map(r => r.avoidance); // feed this to the histogram
+    onData(avoidances, rows);
+  });
+};
+</script>
+
 /* Dark projection variant */
 body.project{
   --paper:#16130F; --surface:#1E1A15; --ink:#F5F1E8; --ink-muted:#B8AF9E;
