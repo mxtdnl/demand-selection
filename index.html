@@ -567,9 +567,20 @@ function showChoice(){
   document.querySelectorAll('.deck').forEach(d=>d.classList.remove('picked'));
   $('#t-progress').style.width = (trialIndex/N_TRIALS*100)+'%';
   $('#t-proglabel').textContent = 'Trial '+trialIndex+' / '+N_TRIALS;
-  // focus first deck for keyboard users
-  const first = document.querySelector('.deck');
+  // Randomise left/right position each trial so a choice can't be made by
+  // repeating the same motor action (location perseveration). The deck is
+  // identified by its glyph/colour, not where it sits — logging stays by data-id.
+  shuffleDecks();
+  const first = document.querySelector('#choice-panel .decks .deck');
   if(first) first.focus({preventScroll:true});
+}
+
+function shuffleDecks(){
+  const row = document.querySelector('#choice-panel .decks');
+  const a = row.querySelector('.deck[data-id="A"]');
+  const b = row.querySelector('.deck[data-id="B"]');
+  if(Math.random() < 0.5){ row.appendChild(a); row.appendChild(b); }
+  else { row.appendChild(b); row.appendChild(a); }
 }
 
 // Switch-probability engine: chosen deck sets P(rule changes vs previous trial)
@@ -643,8 +654,9 @@ document.addEventListener('keydown', (e)=>{
   if(!taskActive) return;
   const choosing = $('#choice-panel').style.display !== 'none';
   if(choosing){
-    if(e.key==='ArrowLeft'){ e.preventDefault(); pickDeck('A'); }
-    else if(e.key==='ArrowRight'){ e.preventDefault(); pickDeck('B'); }
+    const decks = document.querySelectorAll('#choice-panel .decks .deck');
+    if(e.key==='ArrowLeft'){ e.preventDefault(); pickDeck(decks[0].dataset.id); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); pickDeck(decks[1].dataset.id); }
   } else if(awaiting){
     if(key==='f'){ e.preventDefault(); answerTask('F'); }
     else if(key==='j'){ e.preventDefault(); answerTask('J'); }
