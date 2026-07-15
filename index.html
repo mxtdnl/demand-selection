@@ -22,8 +22,11 @@
   --signal:#E4572E; --cue:#2E6F8E; --gain:#3A7D44; --loss:#B23A48; --amber:#D69A2D;
   --focus:#2E6F8E;
 
-  /* neutral, interchangeable deck identities — calm, similar lightness */
-  --deck-a:#D6CDBB; --deck-b:#C7D0CE; --deck-glyph:#8C8474;
+  /* two calm deck identities — distinct hue (cool vs warm), matched lightness
+     so neither looks "harder"; interchangeable in weight, not in appearance */
+  --deck-a:#A7C1CE; --deck-b:#DFC3A0; --deck-glyph:#443E33;
+
+  --hold-ms:460ms;   /* dwell time to commit a deck selection */
 
   --font-display:"Fraunces", Georgia, "Times New Roman", serif;
   --font-body:"Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -41,7 +44,7 @@
 body.project{
   --paper:#16130F; --surface:#1E1A15; --ink:#F5F1E8; --ink-muted:#B8AF9E;
   --rule:#3A342B; --rule-soft:#2A2620;
-  --deck-a:#5A5545; --deck-b:#4B5350; --deck-glyph:#B8AF9E;
+  --deck-a:#3E4C57; --deck-b:#59493A; --deck-glyph:#E7DFCE;
   font-size:23px;
 }
 
@@ -114,24 +117,42 @@ body.project .btn{min-height:48px;}
 
 /* ---------- Choice screen ---------- */
 .choice-stage{text-align:center; padding:var(--s4) 0;}
-#choice-gate{display:flex; flex-direction:column; align-items:center; gap:var(--s3); min-height:300px; justify-content:center;}
-.gate-btn{font-size:var(--fs-lead); padding:16px 30px;}
-#choice-decks{min-height:300px; display:flex; flex-direction:column; justify-content:center;}
+#choice-decks{min-height:320px; display:flex; flex-direction:column; justify-content:center;}
 .decks{display:flex; gap:var(--s5); justify-content:center; margin:var(--s4) 0;}
+/* Playing-card decks: distinct hue + emblem + corner pips, matched weight.
+   Selection is by holding (dwell) — a quick tap/click never commits. */
 .deck{
-  width:220px; height:260px; border-radius:8px; border:2px solid var(--rule);
-  display:flex; align-items:center; justify-content:center; cursor:pointer;
-  font-family:var(--font-mono); font-size:64px; color:var(--deck-glyph);
-  transition:transform .14s cubic-bezier(.4,0,.2,1), box-shadow .14s ease, border-color .14s ease;
-  position:relative;
+  position:relative; overflow:hidden;
+  width:212px; height:296px; border-radius:14px;
+  border:2px solid rgba(22,19,15,.28);
+  display:grid; place-items:center; cursor:pointer;
+  color:var(--deck-glyph); font-family:var(--font-mono);
+  touch-action:none; user-select:none; -webkit-user-select:none;
+  box-shadow:inset 0 0 0 5px rgba(251,249,243,.30), inset 0 0 0 6px rgba(22,19,15,.10);
+  transition:transform .14s cubic-bezier(.4,0,.2,1), border-color .12s ease;
 }
 .deck[data-id="A"]{background:var(--deck-a);}
 .deck[data-id="B"]{background:var(--deck-b);}
+.deck .emblem{font-size:104px; line-height:1; position:relative; z-index:2;}
+.deck .pip{position:absolute; font-size:26px; line-height:1; opacity:.9; z-index:2;}
+.deck .pip.tl{top:14px; left:16px;}
+.deck .pip.br{bottom:14px; right:16px; transform:rotate(180deg);}
+.deck .deck-hold{position:absolute; left:0; right:0; bottom:0; height:0; z-index:1;
+  background:rgba(22,19,15,.18); border-top:3px solid var(--ink);}
+body.project .deck .deck-hold{background:rgba(245,241,232,.16); border-top-color:var(--paper);}
+.deck.holding .deck-hold{height:100%; transition:height var(--hold-ms) linear;}
+.deck.holding{border-color:var(--ink);}
 .deck:hover{border-color:var(--ink-muted);}
 .deck:focus-visible{outline:3px solid var(--focus); outline-offset:3px;}
-.deck.picked{transform:scale(.97); border-color:var(--ink); box-shadow:inset 0 0 0 3px var(--ink);}
-@media(max-width:560px){ .decks{gap:var(--s3);} .deck{width:44vw; height:52vw; max-width:220px; max-height:260px;} }
-body.project .deck{width:300px; height:360px; font-size:96px;}
+.deck.picked{transform:scale(.97); border-color:var(--ink);}
+.deck.picked .deck-hold{height:100%; transition:none;}
+@media(max-width:560px){ .decks{gap:var(--s3);} .deck{width:42vw; height:58vw; max-width:212px; max-height:296px;} .deck .emblem{font-size:20vw;} }
+body.project .deck{width:280px; height:390px;}
+body.project .deck .emblem{font-size:150px;}
+body.project .deck .pip{font-size:34px;}
+/* swatch bullets for the cue legend (replaces glyphs to avoid clashing with deck emblems) */
+.swatch{display:inline-block; width:0.72em; height:0.72em; border-radius:3px; vertical-align:-0.06em; margin-right:0.35em;}
+.swatch.cue{background:var(--cue);} .swatch.signal{background:var(--signal);}
 
 .progress-wrap{max-width:520px; margin:var(--s4) auto 0;}
 .progress-track{height:4px; background:var(--rule); border-radius:2px; overflow:hidden;}
@@ -243,12 +264,12 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
 
       <div class="rules">
         <div class="rulecard parity">
-          <div class="dot">◆ Blue digit — <b>PARITY</b></div>
+          <div class="dot"><span class="swatch cue"></span>Blue digit — <b>PARITY</b></div>
           <p style="margin:var(--s1) 0 0">Is the number <b>odd</b> or <b>even</b>?</p>
           <div class="keys">F = Odd&nbsp;&nbsp;·&nbsp;&nbsp;J = Even</div>
         </div>
         <div class="rulecard magnitude">
-          <div class="dot">● Orange digit — <b>MAGNITUDE</b></div>
+          <div class="dot"><span class="swatch signal"></span>Orange digit — <b>MAGNITUDE</b></div>
           <p style="margin:var(--s1) 0 0">Is the number <b>less than 5</b> or <b>greater than 5</b>?</p>
           <div class="keys">F = &lt; 5&nbsp;&nbsp;·&nbsp;&nbsp;J = &gt; 5</div>
         </div>
@@ -289,8 +310,8 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
     <div class="panel">
       <div class="micro-stage">
         <div class="cue-legend">
-          <span class="p">◆ blue → <b>parity</b> · F odd / J even</span>
-          <span class="m">● orange → <b>magnitude</b> · F &lt;5 / J &gt;5</span>
+          <span class="p"><span class="swatch cue"></span>blue → <b>parity</b> · F odd / J even</span>
+          <span class="m"><span class="swatch signal"></span>orange → <b>magnitude</b> · F &lt;5 / J &gt;5</span>
         </div>
         <div class="task-title" id="p-title"></div>
         <div class="digit" id="p-digit">·</div>
@@ -316,21 +337,25 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
     <!-- Choice sub-panel -->
     <div class="panel" id="choice-panel">
       <div class="choice-stage">
-        <!-- Centred gate: forces a fresh, deliberate action each trial so a
-             choice can't be made by parking the cursor and auto-firing clicks. -->
-        <div id="choice-gate">
-          <h3 class="muted">Your choice</h3>
-          <button class="btn gate-btn" id="gate-btn" aria-label="Reveal the two decks">▶ Show the decks</button>
-          <p class="caption">A fresh pick each round — click here (or press <b class="mono">Space</b>), then choose.</p>
-        </div>
-        <!-- Decks: hidden until the gate is triggered; positions shuffle each trial. -->
-        <div id="choice-decks" style="display:none;">
-          <h3 class="muted">Choose a deck</h3>
+        <!-- Decks shuffle sides each trial; selection is by holding (dwell),
+             so a tap/mash never commits and a fixed cursor can't auto-advance. -->
+        <div id="choice-decks">
+          <h3 class="muted">Hold a deck to choose</h3>
           <div class="decks">
-            <button class="deck" data-id="A" aria-label="Deck one">◆</button>
-            <button class="deck" data-id="B" aria-label="Deck two">●</button>
+            <button class="deck" data-id="A" aria-label="Blue circle deck — hold to choose">
+              <span class="pip tl" aria-hidden="true">●</span>
+              <span class="emblem" aria-hidden="true">●</span>
+              <span class="pip br" aria-hidden="true">●</span>
+              <span class="deck-hold" aria-hidden="true"></span>
+            </button>
+            <button class="deck" data-id="B" aria-label="Amber diamond deck — hold to choose">
+              <span class="pip tl" aria-hidden="true">◆</span>
+              <span class="emblem" aria-hidden="true">◆</span>
+              <span class="pip br" aria-hidden="true">◆</span>
+              <span class="deck-hold" aria-hidden="true"></span>
+            </button>
           </div>
-          <p class="caption">Pick whichever you like — click, tap, or press <b class="mono">←</b> / <b class="mono">→</b>.</p>
+          <p class="caption"><b>Press and hold</b> a deck — or hold <b class="mono">←</b> / <b class="mono">→</b> — until it fills. A quick tap won't register.</p>
         </div>
         <div class="progress-wrap">
           <div class="progress-track"><div class="progress-fill" id="t-progress"></div></div>
@@ -343,8 +368,8 @@ textarea:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
     <div class="panel" id="micro-panel" style="display:none;">
       <div class="micro-stage">
         <div class="cue-legend">
-          <span class="p">◆ blue → <b>parity</b> · F odd / J even</span>
-          <span class="m">● orange → <b>magnitude</b> · F &lt;5 / J &gt;5</span>
+          <span class="p"><span class="swatch cue"></span>blue → <b>parity</b> · F odd / J even</span>
+          <span class="m"><span class="swatch signal"></span>orange → <b>magnitude</b> · F &lt;5 / J &gt;5</span>
         </div>
         <div class="task-title" id="t-title"></div>
         <div class="digit" id="t-digit">·</div>
@@ -681,34 +706,42 @@ function startTask(){
   showChoice();
 }
 
-let decksRevealed = false;
+const HOLD_MS = 460;          // dwell time to commit a deck (matches --hold-ms)
+let holdEl = null, holdTimer = null;
+
 function showChoice(){
+  cancelHold();
   $('#micro-panel').style.display = 'none';
   $('#choice-panel').style.display = 'block';
-  document.querySelectorAll('.deck').forEach(d=>d.classList.remove('picked'));
+  document.querySelectorAll('.deck').forEach(d=>d.classList.remove('picked','holding'));
   $('#t-progress').style.width = (trialIndex/N_TRIALS*100)+'%';
   $('#t-proglabel').textContent = 'Trial '+trialIndex+' / '+N_TRIALS;
-  // Start each trial at the centred gate. The interactive target therefore
-  // alternates centre (gate) → left/right (deck), so no single fixed cursor
-  // position can advance two trials in a row: a deliberate move is required.
-  decksRevealed = false;
-  $('#choice-gate').style.display = 'flex';
-  $('#choice-decks').style.display = 'none';
-  $('#gate-btn').focus({preventScroll:true});
-}
-
-function revealDecks(){
-  if(decksRevealed) return;
-  decksRevealed = true;
-  $('#choice-gate').style.display = 'none';
-  $('#choice-decks').style.display = 'flex';
-  // Randomise left/right position so location isn't a stable proxy for identity;
-  // a deck is identified by its glyph/colour. Logging stays by data-id.
+  // Shuffle which visual deck sits left/right so location isn't a stable proxy
+  // for identity (a deck is known by its colour/emblem, not its side).
   shuffleDecks();
   const first = document.querySelector('#choice-decks .decks .deck');
   if(first) first.focus({preventScroll:true});
 }
-$('#gate-btn').addEventListener('click', revealDecks);
+
+// Hold-to-commit: a deck is selected only after a continuous dwell of HOLD_MS.
+// A quick tap/click, or a mashed/auto-repeating key, never completes — so the
+// choice cannot be made by mashing, and a parked cursor can't auto-advance.
+function beginHold(deckEl){
+  if(!deckEl || holdEl) return;
+  if($('#choice-panel').style.display==='none') return;
+  holdEl = deckEl;
+  deckEl.classList.add('holding');
+  holdTimer = setTimeout(()=>{
+    const id = deckEl.dataset.id;
+    deckEl.classList.remove('holding');
+    holdEl = null; holdTimer = null;
+    pickDeck(id);
+  }, HOLD_MS);
+}
+function cancelHold(){
+  if(holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+  if(holdEl){ holdEl.classList.remove('holding'); holdEl = null; }
+}
 
 function shuffleDecks(){
   const row = document.querySelector('#choice-decks .decks');
@@ -771,9 +804,14 @@ function answerTask(resp){
 $('#t-btnF').addEventListener('click', ()=>answerTask('F'));
 $('#t-btnJ').addEventListener('click', ()=>answerTask('J'));
 
-// Deck selection via click + keyboard (only once the gate has been passed)
+// Deck selection by press-and-hold (pointer/touch). A click is a down→up
+// shorter than HOLD_MS, so it cancels before committing — nothing to mash.
 document.querySelectorAll('.deck').forEach(d=>{
-  d.addEventListener('click', ()=>{ if(decksRevealed && $('#choice-panel').style.display!=='none') pickDeck(d.dataset.id); });
+  d.addEventListener('pointerdown', e=>{ e.preventDefault(); beginHold(d); });
+  d.addEventListener('pointerup', cancelHold);
+  d.addEventListener('pointerleave', cancelHold);
+  d.addEventListener('pointercancel', cancelHold);
+  d.addEventListener('contextmenu', e=> e.preventDefault()); // no long-press menu
 });
 
 // Global keyboard: arrows for decks, F/J for responses
@@ -788,17 +826,22 @@ document.addEventListener('keydown', (e)=>{
   }
   if(!taskActive) return;
   const choosing = $('#choice-panel').style.display !== 'none';
-  if(choosing && !decksRevealed){
-    // at the gate: Space / Enter reveals the decks (a deliberate act each trial)
-    if(e.key===' ' || e.key==='Enter'){ e.preventDefault(); revealDecks(); }
-  } else if(choosing && decksRevealed){
-    const decks = document.querySelectorAll('#choice-decks .decks .deck');
-    if(e.key==='ArrowLeft'){ e.preventDefault(); pickDeck(decks[0].dataset.id); }
-    else if(e.key==='ArrowRight'){ e.preventDefault(); pickDeck(decks[1].dataset.id); }
+  if(choosing){
+    // hold ← / → to choose the deck on that side (auto-repeat ignored)
+    if(e.key==='ArrowLeft' || e.key==='ArrowRight'){
+      e.preventDefault();
+      if(e.repeat) return;
+      const decks = document.querySelectorAll('#choice-decks .decks .deck');
+      beginHold(e.key==='ArrowLeft' ? decks[0] : decks[1]);
+    }
   } else if(awaiting){
     if(key==='f'){ e.preventDefault(); answerTask('F'); }
     else if(key==='j'){ e.preventDefault(); answerTask('J'); }
   }
+});
+// releasing the arrow cancels an in-progress deck hold
+document.addEventListener('keyup', (e)=>{
+  if(e.key==='ArrowLeft' || e.key==='ArrowRight') cancelHold();
 });
 
 /* ============================================================
@@ -863,8 +906,8 @@ function buildReveal(){
     })(t0);
   }
 
-  // reveal decks (mark the hidden high-demand one)
-  const glyph = id => id==='A' ? '◆' : '●';
+  // reveal decks (mark the hidden high-demand one); emblems match the choice screen
+  const glyph = id => id==='A' ? '●' : '◆';
   const wrap = $('#reveal-decks'); wrap.innerHTML='';
   ['A','B'].forEach(id=>{
     const hi = (id===deckHighDemand);
@@ -950,20 +993,23 @@ function openAggregate(opts){
   viewAsInstructor = !!opts.instructor;
   if(viewAsInstructor) setMode('project');
   show('#screen-aggregate');
-  if(LIVE){
+  // an instructor always drives a session; a student uses whatever code they joined
+  const code = (opts.code||'').toUpperCase() || sessionCode || (viewAsInstructor && LIVE ? genCode() : '');
+  if(LIVE && code){
     aggMode = 'live';
     $('#session-console').style.display = 'block';
     $('#manual-console').style.display = 'none';
     $('#firebase-note').innerHTML = 'Class mode: <b>live</b> — results stream into this session.';
     showDemo = false; classData = [];
-    let code = (opts.code||'').toUpperCase() || sessionCode || (viewAsInstructor ? genCode() : '');
-    if(code) applySessionCode(code); else refreshAggregate();
+    applySessionCode(code);
   } else {
+    // OFFLINE, or LIVE with no session joined → seeded demo (so it's never empty)
     aggMode = 'demo';
     $('#session-console').style.display = 'none';
     $('#manual-console').style.display = 'block';
-    $('#firebase-note').innerHTML = 'Class mode: <b>offline</b> — showing illustrative demo data. '
-      + 'Replace <code>firebaseConfig.apiKey</code> in the source to run a live class.';
+    $('#firebase-note').innerHTML = LIVE
+      ? 'Class mode: <b>live</b> available — use “Instructor / show session” to project a class. Showing demo data for now.'
+      : 'Class mode: <b>offline</b> — showing illustrative demo data. Replace <code>firebaseConfig.apiKey</code> in the source to run a live class.';
     showDemo = $('#chk-demo').checked;
     refreshAggregate();
   }

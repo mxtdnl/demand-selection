@@ -18,21 +18,19 @@ needs).
 - **Practice** (6 trials) teaches the two judgments: **parity** (odd/even, blue
   digit) and **magnitude** (`<5` / `>5`, orange digit). Respond with **F / J** or
   the on-screen buttons.
-- **Task block** (80 free-choice trials): each trial starts at a centred **"Show
-  the decks" gate**, then two decks appear and you pick one; the pick runs one digit
-  micro-task and returns to the gate. The chosen deck secretly sets the probability
-  that the judgment rule *switches* from the previous trial — **0.10** for the easy
-  deck, **0.90** for the hard deck. Which visual patch is hard is randomised per
-  participant (and re-randomised on "Play again") so the effect can't be a
-  side-preference. No difficulty cues anywhere.
-- **Why the gate + position shuffle:** together they stop a participant from
-  "choosing" by parking the cursor and auto-firing clicks. The interactive target
-  alternates centre (gate) → left/right (deck), so no single fixed coordinate can
-  advance two trials in a row — a deliberate action is required each round — and the
-  decks swap sides so location is never a stable stand-in for identity. Mindless
-  repetition is therefore both effortful and unrewarding (it yields random decks,
-  not a comfortable easy one). No client-side measure can *force* genuine
-  engagement, but this removes the effortless lazy path.
+- **Task block** (80 free-choice trials): two distinct playing-card decks (a cool
+  circle card and a warm diamond card) appear; you choose one, the pick runs one
+  digit micro-task, and the decks return. The chosen deck secretly sets the
+  probability that the judgment rule *switches* from the previous trial — **0.10**
+  for the easy deck, **0.90** for the hard deck. Which visual patch is hard is
+  randomised per participant (and re-randomised on "Play again") so the effect
+  can't be a side-preference. No difficulty cues anywhere.
+- **Selection is by press-and-hold (dwell), not clicking.** You hold a deck — or
+  hold **← / →** — for ~460 ms until it fills; a quick tap, click, or mashed/held
+  key never completes. This makes the choice un-mashable and deliberate. The decks
+  also swap sides each trial, so location is never a stable stand-in for identity
+  and a parked cursor can't auto-advance. (No client-side measure can *force*
+  genuine engagement, but this removes the effortless lazy path.)
 - **Personal reveal**: hero % ("you chose the easier deck X% of the time"), the
   hidden mapping, the corroborating RT/error gap, and the student's own
   awareness answer.
